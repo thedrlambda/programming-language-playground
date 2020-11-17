@@ -14,6 +14,7 @@ export class Lexer {
   private peek = "";
   private currentNumber = 0;
   private current = "";
+  private lineNumber = 1;
   constructor(filename: string) {
     this.content = ("" + fs.readFileSync(filename)).split("");
     this.consume();
@@ -46,11 +47,17 @@ export class Lexer {
   look() {
     return this.current || this.currentNumber;
   }
+  getLineNumber() {
+    return this.lineNumber;
+  }
   consume() {
     this.current = "";
     this.currentNumber = 0;
     let state = LexerState.START;
     while (this.index < this.content.length) {
+      if (!this.peek && this.content[this.index] === "\n") {
+        this.lineNumber++;
+      }
       let c = this.peek || this.content[this.index++];
       this.peek = "";
       if (state === LexerState.START) {

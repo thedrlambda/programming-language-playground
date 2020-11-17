@@ -19,117 +19,130 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var fs_1 = __importDefault(require("fs"));
 var lexer_1 = require("./lexer");
 var Label = /** @class */ (function () {
-    function Label(label) {
+    function Label(lineNumber, label) {
+        this.lineNumber = lineNumber;
         this.label = label;
     }
     Label.prototype.apply = function (a) {
-        a.caseLabel(this);
+        return a.caseLabel(this);
     };
     return Label;
 }());
 var Func = /** @class */ (function () {
-    function Func(name, params, locals) {
+    function Func(lineNumber, name, params, locals) {
+        this.lineNumber = lineNumber;
         this.name = name;
         this.params = params;
         this.locals = locals;
     }
     Func.prototype.apply = function (a) {
-        a.caseFunc(this);
+        return a.caseFunc(this);
     };
     return Func;
 }());
 var IReturn = /** @class */ (function () {
-    function IReturn() {
+    function IReturn(lineNumber) {
+        this.lineNumber = lineNumber;
     }
     IReturn.prototype.apply = function (a) {
-        a.caseReturn(this);
+        return a.caseReturn(this);
     };
     return IReturn;
 }());
 var ICall = /** @class */ (function () {
-    function ICall(name) {
+    function ICall(lineNumber, name) {
+        this.lineNumber = lineNumber;
         this.name = name;
     }
     ICall.prototype.apply = function (a) {
-        a.caseCall(this);
+        return a.caseCall(this);
     };
     return ICall;
 }());
 var IStore = /** @class */ (function () {
-    function IStore(index) {
+    function IStore(lineNumber, index) {
+        this.lineNumber = lineNumber;
         this.index = index;
     }
     IStore.prototype.apply = function (a) {
-        a.caseStore(this);
+        return a.caseStore(this);
     };
     return IStore;
 }());
 var ILoad = /** @class */ (function () {
-    function ILoad(index) {
+    function ILoad(lineNumber, index) {
+        this.lineNumber = lineNumber;
         this.index = index;
     }
     ILoad.prototype.apply = function (a) {
-        a.caseLoad(this);
+        return a.caseLoad(this);
     };
     return ILoad;
 }());
 var IPush = /** @class */ (function () {
-    function IPush(arg) {
+    function IPush(lineNumber, arg) {
+        this.lineNumber = lineNumber;
         this.arg = arg;
     }
     IPush.prototype.apply = function (a) {
-        a.casePush(this);
+        return a.casePush(this);
     };
     return IPush;
 }());
 var IPop = /** @class */ (function () {
-    function IPop() {
+    function IPop(lineNumber) {
+        this.lineNumber = lineNumber;
     }
     IPop.prototype.apply = function (a) {
-        a.casePop(this);
+        return a.casePop(this);
     };
     return IPop;
 }());
 var IDup = /** @class */ (function () {
-    function IDup() {
+    function IDup(lineNumber) {
+        this.lineNumber = lineNumber;
     }
     IDup.prototype.apply = function (a) {
-        a.caseDup(this);
+        return a.caseDup(this);
     };
     return IDup;
 }());
 var ISwap = /** @class */ (function () {
-    function ISwap() {
+    function ISwap(lineNumber) {
+        this.lineNumber = lineNumber;
     }
     ISwap.prototype.apply = function (a) {
-        a.caseSwap(this);
+        return a.caseSwap(this);
     };
     return ISwap;
 }());
 var ISub = /** @class */ (function () {
-    function ISub() {
+    function ISub(lineNumber) {
+        this.lineNumber = lineNumber;
     }
     ISub.prototype.apply = function (a) {
-        a.caseSub(this);
+        return a.caseSub(this);
     };
     return ISub;
 }());
 var IJmp = /** @class */ (function () {
-    function IJmp(label) {
+    function IJmp(lineNumber, label) {
+        this.lineNumber = lineNumber;
         this.label = label;
     }
     IJmp.prototype.apply = function (a) {
-        a.caseJmp(this);
+        return a.caseJmp(this);
     };
     return IJmp;
 }());
 var IZero = /** @class */ (function () {
-    function IZero(lTrue, lFalse) {
+    function IZero(lineNumber, lTrue, lFalse) {
+        this.lineNumber = lineNumber;
         this.lTrue = lTrue;
         this.lFalse = lFalse;
     }
     IZero.prototype.apply = function (a) {
-        a.caseZero(this);
+        return a.caseZero(this);
     };
     return IZero;
 }());
@@ -138,7 +151,6 @@ var Analysis = /** @class */ (function () {
     }
     Analysis.prototype.default = function () { };
     Analysis.prototype.before = function () { };
-    Analysis.prototype.after = function () { };
     Analysis.prototype.caseLabel = function (i) {
         this.default();
     };
@@ -187,55 +199,56 @@ var Parser = /** @class */ (function () {
     }
     Parser.prototype.parse = function () {
         while (this.lexer.hasNext()) {
+            var line = this.lexer.getLineNumber();
             if (this.lexer.consumeIf(":")) {
                 var label = this.lexer.consumeId();
-                this.instructions.push(new Label(label));
+                this.instructions.push(new Label(line, label));
             }
             else if (this.lexer.consumeIf(".")) {
                 var name_1 = this.lexer.consumeId();
                 var params = this.lexer.consumeNumber();
                 var locals = this.lexer.consumeNumber();
-                this.instructions.push(new Func(name_1, params, locals));
+                this.instructions.push(new Func(line, name_1, params, locals));
             }
             else if (this.lexer.consumeIf("return")) {
-                this.instructions.push(new IReturn());
+                this.instructions.push(new IReturn(line));
             }
             else if (this.lexer.consumeIf("call")) {
                 var name_2 = this.lexer.consumeId();
-                this.instructions.push(new ICall(name_2));
+                this.instructions.push(new ICall(line, name_2));
             }
             else if (this.lexer.consumeIf("store")) {
                 var v = this.lexer.consumeNumber();
-                this.instructions.push(new IStore(v));
+                this.instructions.push(new IStore(line, v));
             }
             else if (this.lexer.consumeIf("load")) {
                 var v = this.lexer.consumeNumber();
-                this.instructions.push(new ILoad(v));
+                this.instructions.push(new ILoad(line, v));
             }
             else if (this.lexer.consumeIf("push")) {
                 var arg = this.lexer.consumeNumber();
-                this.instructions.push(new IPush(arg));
+                this.instructions.push(new IPush(line, arg));
             }
             else if (this.lexer.consumeIf("pop")) {
-                this.instructions.push(new IPop());
+                this.instructions.push(new IPop(line));
             }
             else if (this.lexer.consumeIf("swap")) {
-                this.instructions.push(new ISwap());
+                this.instructions.push(new ISwap(line));
             }
             else if (this.lexer.consumeIf("dup")) {
-                this.instructions.push(new IDup());
+                this.instructions.push(new IDup(line));
             }
             else if (this.lexer.consumeIf("sub")) {
-                this.instructions.push(new ISub());
+                this.instructions.push(new ISub(line));
             }
             else if (this.lexer.consumeIf("jmp")) {
                 var label = this.lexer.consumeId();
-                this.instructions.push(new IJmp(label));
+                this.instructions.push(new IJmp(line, label));
             }
             else if (this.lexer.consumeIf("zero")) {
                 var label1 = this.lexer.consumeId();
                 var label2 = this.lexer.consumeId();
-                this.instructions.push(new IZero(label1, label2));
+                this.instructions.push(new IZero(line, label1, label2));
             }
             else {
                 throw "Panic! '" + this.lexer.look() + "'";
@@ -245,7 +258,10 @@ var Parser = /** @class */ (function () {
     Parser.prototype.apply = function (a) {
         a.before();
         this.instructions.forEach(function (i) { return i.apply(a); });
-        a.after();
+        return a.after();
+    };
+    Parser.prototype.getInstructions = function () {
+        return this.instructions;
     };
     return Parser;
 }());
@@ -378,7 +394,7 @@ var CodeGeneration = /** @class */ (function (_super) {
         this.heap.push(9999);
     };
     CodeGeneration.prototype.caseCall = function (i) {
-        var info = this.funcs[i.name];
+        var info = this.funcs[i.name] || { locals: 0, loc: 0, params: 0 };
         // push current lv
         // SBNZ [-locals-1] [sp] #dst X
         this.heap.push(this.refNum(-info.locals - 1));
@@ -590,9 +606,290 @@ var CodeGeneration = /** @class */ (function (_super) {
     };
     return CodeGeneration;
 }(Analysis));
+var VariableCheck = /** @class */ (function (_super) {
+    __extends(VariableCheck, _super);
+    function VariableCheck() {
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.locals = 0;
+        _this.errors = [];
+        return _this;
+    }
+    // TODO check initialized
+    VariableCheck.prototype.caseFunc = function (i) {
+        this.locals = i.locals + i.params;
+    };
+    VariableCheck.prototype.caseLoad = function (i) {
+        if (i.index < 0 || i.index >= this.locals)
+            this.errors.push("Accessing illegal variable on line " + i.lineNumber);
+    };
+    VariableCheck.prototype.caseStore = function (i) {
+        if (i.index < 0 || i.index >= this.locals)
+            this.errors.push("Accessing illegal variable on line " + i.lineNumber);
+    };
+    VariableCheck.prototype.after = function () {
+        if (this.errors.length > 0) {
+            throw this.errors.join("\n");
+        }
+    };
+    return VariableCheck;
+}(Analysis));
+var Environment = /** @class */ (function (_super) {
+    __extends(Environment, _super);
+    function Environment() {
+        var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.env = { funcs: {}, labels: {} };
+        _this.index = 0;
+        return _this;
+        // TODO check jmp, labels and calls
+    }
+    Environment.prototype.default = function () {
+        this.index++;
+    };
+    Environment.prototype.after = function () {
+        return this.env;
+    };
+    Environment.prototype.caseFunc = function (i) {
+        this.env.funcs[i.name] = i;
+        this.index++;
+    };
+    Environment.prototype.caseLabel = function (i) {
+        this.env.labels[i.label] = this.index;
+        this.index++;
+    };
+    return Environment;
+}(Analysis));
+var Node = /** @class */ (function () {
+    function Node(value) {
+        this.value = value;
+        this.next = [];
+    }
+    Node.prototype.addNext = function (n) {
+        this.next.push(n);
+    };
+    return Node;
+}());
+var StackHeightVisitor = /** @class */ (function () {
+    function StackHeightVisitor(env, current) {
+        this.env = env;
+        this.current = current;
+    }
+    StackHeightVisitor.prototype.caseLabel = function (i) {
+        return 0;
+    };
+    StackHeightVisitor.prototype.caseFunc = function (i) {
+        return -this.current;
+    };
+    StackHeightVisitor.prototype.caseReturn = function (i) {
+        if (this.current !== 1)
+            throw this.current + " values on the stack at return on line " + i.lineNumber;
+        return Number.NEGATIVE_INFINITY;
+    };
+    StackHeightVisitor.prototype.caseCall = function (i) {
+        return -env.funcs[i.name].params + 1;
+    };
+    StackHeightVisitor.prototype.caseStore = function (i) {
+        return -1;
+    };
+    StackHeightVisitor.prototype.caseLoad = function (i) {
+        return 1;
+    };
+    StackHeightVisitor.prototype.casePush = function (i) {
+        return 1;
+    };
+    StackHeightVisitor.prototype.casePop = function (i) {
+        return -1;
+    };
+    StackHeightVisitor.prototype.caseDup = function (i) {
+        return 1;
+    };
+    StackHeightVisitor.prototype.caseSwap = function (i) {
+        return 0;
+    };
+    StackHeightVisitor.prototype.caseSub = function (i) {
+        return -1;
+    };
+    StackHeightVisitor.prototype.caseJmp = function (i) {
+        return 0;
+    };
+    StackHeightVisitor.prototype.caseZero = function (i) {
+        return -1;
+    };
+    return StackHeightVisitor;
+}());
+var NextVisitor = /** @class */ (function () {
+    function NextVisitor(env, current) {
+        this.env = env;
+        this.current = current;
+    }
+    NextVisitor.prototype.caseLabel = function (i) {
+        return [this.current + 1];
+    };
+    NextVisitor.prototype.caseFunc = function (i) {
+        return [this.current + 1];
+    };
+    NextVisitor.prototype.caseReturn = function (i) {
+        return [];
+    };
+    NextVisitor.prototype.caseCall = function (i) {
+        return [this.current + 1];
+    };
+    NextVisitor.prototype.caseStore = function (i) {
+        return [this.current + 1];
+    };
+    NextVisitor.prototype.caseLoad = function (i) {
+        return [this.current + 1];
+    };
+    NextVisitor.prototype.casePush = function (i) {
+        return [this.current + 1];
+    };
+    NextVisitor.prototype.casePop = function (i) {
+        return [this.current + 1];
+    };
+    NextVisitor.prototype.caseDup = function (i) {
+        return [this.current + 1];
+    };
+    NextVisitor.prototype.caseSwap = function (i) {
+        return [this.current + 1];
+    };
+    NextVisitor.prototype.caseSub = function (i) {
+        return [this.current + 1];
+    };
+    NextVisitor.prototype.caseJmp = function (i) {
+        return [this.env.labels[i.label]];
+    };
+    NextVisitor.prototype.caseZero = function (i) {
+        return [this.env.labels[i.lTrue], this.env.labels[i.lFalse]];
+    };
+    return NextVisitor;
+}());
+function propagate(env, instrs, stackHeights) {
+    var changed = false;
+    var _loop_1 = function (i) {
+        var inst = instrs[i];
+        var stackHeight = stackHeights[i];
+        if (stackHeight === undefined)
+            return "continue";
+        stackHeight += inst.apply(new StackHeightVisitor(env, stackHeight));
+        inst.apply(new NextVisitor(env, i)).forEach(function (x) {
+            if (stackHeights[x] === undefined) {
+                stackHeights[x] = stackHeight;
+                changed = true;
+            }
+            else if (stackHeights[x] !== stackHeight)
+                throw "Illegal stack heights " + stackHeights[x] + " and " + stackHeight + " on line " + inst.lineNumber;
+        });
+    };
+    for (var i = 0; i < instrs.length; i++) {
+        _loop_1(i);
+    }
+    return changed;
+}
+function stackHeightAnalysis(env, instrs) {
+    var changed = true;
+    var stackHeights = [0];
+    while (changed) {
+        changed = propagate(env, instrs, stackHeights);
+    }
+    var index = stackHeights.findIndex(function (x) { return x < 0; });
+    if (index >= 0)
+        throw "Stack underflow on line " + instrs[index - 1].lineNumber;
+    console.log("Final stack height: " + stackHeights[stackHeights.length - 1]);
+}
+var StackHeight = /** @class */ (function (_super) {
+    __extends(StackHeight, _super);
+    function StackHeight(env) {
+        var _this = _super.call(this) || this;
+        _this.env = env;
+        _this.stackHeight = 0;
+        _this.labels = {};
+        return _this;
+    }
+    StackHeight.prototype.after = function () { };
+    StackHeight.prototype.caseLabel = function (i) {
+        if (this.stackHeight !== Number.NEGATIVE_INFINITY &&
+            this.labels[i.label] !== undefined &&
+            this.labels[i.label] !== this.stackHeight)
+            throw "Illegal stack height on line " + i.lineNumber;
+        this.stackHeight = this.labels[i.label] || this.stackHeight;
+    };
+    StackHeight.prototype.caseFunc = function (i) {
+        this.stackHeight = 0;
+    };
+    StackHeight.prototype.caseReturn = function (i) {
+        if (this.stackHeight <= 0)
+            throw "Stack underflow on line " + i.lineNumber;
+        if (this.stackHeight > 1)
+            throw "Illegal stack height on line " + i.lineNumber;
+        this.stackHeight = Number.NEGATIVE_INFINITY;
+    };
+    StackHeight.prototype.caseCall = function (i) {
+        if (this.stackHeight < this.env.funcs[i.name].params)
+            throw "Stack underflow on line " + i.lineNumber;
+        this.stackHeight -= this.env.funcs[i.name].params;
+        this.stackHeight++;
+    };
+    StackHeight.prototype.caseStore = function (i) {
+        if (this.stackHeight <= 0)
+            throw "Stack underflow on line " + i.lineNumber;
+        this.stackHeight--;
+    };
+    StackHeight.prototype.caseLoad = function (i) {
+        this.stackHeight++;
+    };
+    StackHeight.prototype.casePush = function (i) {
+        this.stackHeight++;
+    };
+    StackHeight.prototype.casePop = function (i) {
+        if (this.stackHeight <= 0)
+            throw "Stack underflow on line " + i.lineNumber;
+        this.stackHeight--;
+    };
+    StackHeight.prototype.caseDup = function (i) {
+        if (this.stackHeight <= 0)
+            throw "Stack underflow on line " + i.lineNumber;
+        this.stackHeight++;
+    };
+    StackHeight.prototype.caseSwap = function (i) {
+        if (this.stackHeight < 2)
+            throw "Stack underflow on line " + i.lineNumber;
+    };
+    StackHeight.prototype.caseSub = function (i) {
+        if (this.stackHeight < 2)
+            throw "Stack underflow on line " + i.lineNumber;
+        this.stackHeight--;
+    };
+    StackHeight.prototype.caseJmp = function (i) {
+        if (this.labels[i.label] !== undefined &&
+            this.labels[i.label] !== this.stackHeight)
+            throw "Illegal stack height on line " + i.lineNumber;
+        this.labels[i.label] = this.stackHeight;
+        this.stackHeight = Number.NEGATIVE_INFINITY;
+    };
+    StackHeight.prototype.caseZero = function (i) {
+        if (this.stackHeight <= 0)
+            throw "Stack underflow on line " + i.lineNumber;
+        this.stackHeight--;
+        if (this.labels[i.lTrue] !== undefined &&
+            this.labels[i.lTrue] !== this.stackHeight)
+            throw ("Illegal stack height for label " + i.lTrue + " on line " + i.lineNumber);
+        if (this.labels[i.lFalse] !== undefined &&
+            this.labels[i.lFalse] !== this.stackHeight)
+            throw ("Illegal stack height for label " +
+                i.lFalse +
+                " on line " +
+                i.lineNumber);
+        this.labels[i.lTrue] = this.stackHeight;
+        this.labels[i.lFalse] = this.stackHeight;
+        this.stackHeight = Number.NEGATIVE_INFINITY;
+    };
+    return StackHeight;
+}(Analysis));
 var filename = process.argv[2];
 var prog = new Parser(new lexer_1.Lexer(filename));
 prog.parse();
+prog.apply(new VariableCheck());
+var env = prog.apply(new Environment());
+stackHeightAnalysis(env, prog.getInstructions());
 var codeGen = new CodeGeneration();
 prog.apply(codeGen);
 prog.apply(codeGen);

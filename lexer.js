@@ -19,6 +19,7 @@ var Lexer = /** @class */ (function () {
         this.peek = "";
         this.currentNumber = 0;
         this.current = "";
+        this.lineNumber = 1;
         this.content = ("" + fs_1.default.readFileSync(filename)).split("");
         this.consume();
     }
@@ -52,11 +53,17 @@ var Lexer = /** @class */ (function () {
     Lexer.prototype.look = function () {
         return this.current || this.currentNumber;
     };
+    Lexer.prototype.getLineNumber = function () {
+        return this.lineNumber;
+    };
     Lexer.prototype.consume = function () {
         this.current = "";
         this.currentNumber = 0;
         var state = LexerState.START;
         while (this.index < this.content.length) {
+            if (!this.peek && this.content[this.index] === "\n") {
+                this.lineNumber++;
+            }
             var c = this.peek || this.content[this.index++];
             this.peek = "";
             if (state === LexerState.START) {

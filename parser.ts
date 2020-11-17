@@ -1,96 +1,141 @@
-import { constants } from "buffer";
+import { S_IFDIR } from "constants";
 import fs from "fs";
 import { Lexer } from "./lexer";
 
 interface Instruction {
-  apply(a: Analysis): void;
+  lineNumber: number;
+  apply<T>(a: Visitor<T>): T;
 }
 class Label implements Instruction {
-  constructor(public readonly label: string) {}
-  apply(a: Analysis) {
-    a.caseLabel(this);
+  constructor(
+    public readonly lineNumber: number,
+    public readonly label: string
+  ) {}
+  apply<T>(a: Visitor<T>) {
+    return a.caseLabel(this);
   }
 }
 
 class Func implements Instruction {
   constructor(
+    public readonly lineNumber: number,
     public readonly name: string,
     public readonly params: number,
     public readonly locals: number
   ) {}
-  apply(a: Analysis) {
-    a.caseFunc(this);
+  apply<T>(a: Visitor<T>) {
+    return a.caseFunc(this);
   }
 }
 class IReturn implements Instruction {
-  apply(a: Analysis) {
-    a.caseReturn(this);
+  constructor(public readonly lineNumber: number) {}
+  apply<T>(a: Visitor<T>) {
+    return a.caseReturn(this);
   }
 }
 class ICall implements Instruction {
-  constructor(public readonly name: string) {}
-  apply(a: Analysis) {
-    a.caseCall(this);
+  constructor(
+    public readonly lineNumber: number,
+    public readonly name: string
+  ) {}
+  apply<T>(a: Visitor<T>) {
+    return a.caseCall(this);
   }
 }
 
 class IStore implements Instruction {
-  constructor(public readonly index: number) {}
-  apply(a: Analysis) {
-    a.caseStore(this);
+  constructor(
+    public readonly lineNumber: number,
+    public readonly index: number
+  ) {}
+  apply<T>(a: Visitor<T>) {
+    return a.caseStore(this);
   }
 }
 class ILoad implements Instruction {
-  constructor(public readonly index: number) {}
-  apply(a: Analysis) {
-    a.caseLoad(this);
+  constructor(
+    public readonly lineNumber: number,
+    public readonly index: number
+  ) {}
+  apply<T>(a: Visitor<T>) {
+    return a.caseLoad(this);
   }
 }
 
 class IPush implements Instruction {
-  constructor(public readonly arg: number) {}
-  apply(a: Analysis) {
-    a.casePush(this);
+  constructor(
+    public readonly lineNumber: number,
+    public readonly arg: number
+  ) {}
+  apply<T>(a: Visitor<T>) {
+    return a.casePush(this);
   }
 }
 class IPop implements Instruction {
-  apply(a: Analysis) {
-    a.casePop(this);
+  constructor(public readonly lineNumber: number) {}
+  apply<T>(a: Visitor<T>) {
+    return a.casePop(this);
   }
 }
 class IDup implements Instruction {
-  apply(a: Analysis) {
-    a.caseDup(this);
+  constructor(public readonly lineNumber: number) {}
+  apply<T>(a: Visitor<T>) {
+    return a.caseDup(this);
   }
 }
 class ISwap implements Instruction {
-  apply(a: Analysis) {
-    a.caseSwap(this);
+  constructor(public readonly lineNumber: number) {}
+  apply<T>(a: Visitor<T>) {
+    return a.caseSwap(this);
   }
 }
 class ISub implements Instruction {
-  apply(a: Analysis) {
-    a.caseSub(this);
+  constructor(public readonly lineNumber: number) {}
+  apply<T>(a: Visitor<T>) {
+    return a.caseSub(this);
   }
 }
 
 class IJmp implements Instruction {
-  constructor(public readonly label: string) {}
-  apply(a: Analysis) {
-    a.caseJmp(this);
+  constructor(
+    public readonly lineNumber: number,
+    public readonly label: string
+  ) {}
+  apply<T>(a: Visitor<T>) {
+    return a.caseJmp(this);
   }
 }
 class IZero implements Instruction {
-  constructor(public readonly lTrue: string, public readonly lFalse: string) {}
-  apply(a: Analysis) {
-    a.caseZero(this);
+  constructor(
+    public readonly lineNumber: number,
+    public readonly lTrue: string,
+    public readonly lFalse: string
+  ) {}
+  apply<T>(a: Visitor<T>) {
+    return a.caseZero(this);
   }
 }
 
-class Analysis {
+interface Visitor<T> {
+  caseLabel(i: Label): T;
+  caseFunc(i: Func): T;
+  caseReturn(i: IReturn): T;
+  caseCall(i: ICall): T;
+  caseStore(i: IStore): T;
+  caseLoad(i: ILoad): T;
+  casePush(i: IPush): T;
+  casePop(i: IPop): T;
+  caseDup(i: IDup): T;
+  caseSwap(i: ISwap): T;
+  caseSub(i: ISub): T;
+  caseJmp(i: IJmp): T;
+  caseZero(i: IZero): T;
+}
+
+abstract class Analysis<T> implements Visitor<void> {
   default() {}
   before() {}
-  after() {}
+  abstract after(): T;
   caseLabel(i: Label) {
     this.default();
   }
@@ -137,56 +182,60 @@ class Parser {
   constructor(private lexer: Lexer) {}
   parse() {
     while (this.lexer.hasNext()) {
+      let line = this.lexer.getLineNumber();
       if (this.lexer.consumeIf(":")) {
         let label = this.lexer.consumeId();
-        this.instructions.push(new Label(label));
+        this.instructions.push(new Label(line, label));
       } else if (this.lexer.consumeIf(".")) {
         let name = this.lexer.consumeId();
         let params = this.lexer.consumeNumber();
         let locals = this.lexer.consumeNumber();
-        this.instructions.push(new Func(name, params, locals));
+        this.instructions.push(new Func(line, name, params, locals));
       } else if (this.lexer.consumeIf("return")) {
-        this.instructions.push(new IReturn());
+        this.instructions.push(new IReturn(line));
       } else if (this.lexer.consumeIf("call")) {
         let name = this.lexer.consumeId();
-        this.instructions.push(new ICall(name));
+        this.instructions.push(new ICall(line, name));
       } else if (this.lexer.consumeIf("store")) {
         let v = this.lexer.consumeNumber();
-        this.instructions.push(new IStore(v));
+        this.instructions.push(new IStore(line, v));
       } else if (this.lexer.consumeIf("load")) {
         let v = this.lexer.consumeNumber();
-        this.instructions.push(new ILoad(v));
+        this.instructions.push(new ILoad(line, v));
       } else if (this.lexer.consumeIf("push")) {
         let arg = this.lexer.consumeNumber();
-        this.instructions.push(new IPush(arg));
+        this.instructions.push(new IPush(line, arg));
       } else if (this.lexer.consumeIf("pop")) {
-        this.instructions.push(new IPop());
+        this.instructions.push(new IPop(line));
       } else if (this.lexer.consumeIf("swap")) {
-        this.instructions.push(new ISwap());
+        this.instructions.push(new ISwap(line));
       } else if (this.lexer.consumeIf("dup")) {
-        this.instructions.push(new IDup());
+        this.instructions.push(new IDup(line));
       } else if (this.lexer.consumeIf("sub")) {
-        this.instructions.push(new ISub());
+        this.instructions.push(new ISub(line));
       } else if (this.lexer.consumeIf("jmp")) {
         let label = this.lexer.consumeId();
-        this.instructions.push(new IJmp(label));
+        this.instructions.push(new IJmp(line, label));
       } else if (this.lexer.consumeIf("zero")) {
         let label1 = this.lexer.consumeId();
         let label2 = this.lexer.consumeId();
-        this.instructions.push(new IZero(label1, label2));
+        this.instructions.push(new IZero(line, label1, label2));
       } else {
         throw `Panic! '${this.lexer.look()}'`;
       }
     }
   }
-  apply(a: Analysis) {
+  apply<T>(a: Analysis<T>) {
     a.before();
     this.instructions.forEach((i) => i.apply(a));
-    a.after();
+    return a.after();
+  }
+  getInstructions() {
+    return this.instructions;
   }
 }
 
-class CodeGeneration extends Analysis {
+class CodeGeneration extends Analysis<void> {
   private heap: number[] = [];
   private constants: number[] = [];
   private constantPoolStart = 0;
@@ -312,7 +361,7 @@ class CodeGeneration extends Analysis {
     this.heap.push(9999);
   }
   caseCall(i: ICall) {
-    let info = this.funcs[i.name];
+    let info = this.funcs[i.name] || { locals: 0, loc: 0, params: 0 };
     // push current lv
     // SBNZ [-locals-1] [sp] #dst X
     this.heap.push(this.refNum(-info.locals - 1));
@@ -524,9 +573,275 @@ class CodeGeneration extends Analysis {
   }
 }
 
+class VariableCheck extends Analysis<void> {
+  private locals = 0;
+  private errors: string[] = [];
+  // TODO check initialized
+  caseFunc(i: Func) {
+    this.locals = i.locals + i.params;
+  }
+  caseLoad(i: ILoad) {
+    if (i.index < 0 || i.index >= this.locals)
+      this.errors.push("Accessing illegal variable on line " + i.lineNumber);
+  }
+  caseStore(i: IStore) {
+    if (i.index < 0 || i.index >= this.locals)
+      this.errors.push("Accessing illegal variable on line " + i.lineNumber);
+  }
+  after() {
+    if (this.errors.length > 0) {
+      throw this.errors.join("\n");
+    }
+  }
+}
+
+interface Env {
+  funcs: { [name: string]: Func };
+  labels: { [name: string]: number };
+}
+class Environment extends Analysis<Env> {
+  private env: Env = { funcs: {}, labels: {} };
+  private index = 0;
+  default() {
+    this.index++;
+  }
+  after() {
+    return this.env;
+  }
+  caseFunc(i: Func) {
+    this.env.funcs[i.name] = i;
+    this.index++;
+  }
+  caseLabel(i: Label) {
+    this.env.labels[i.label] = this.index;
+    this.index++;
+  }
+  // TODO check jmp, labels and calls
+}
+
+class Node<T> {
+  private next: Node<T>[] = [];
+  constructor(private value: T) {}
+  addNext(n: Node<T>) {
+    this.next.push(n);
+  }
+}
+
+class StackHeightVisitor implements Visitor<number> {
+  constructor(private env: Env, private current: number) {}
+  caseLabel(i: Label) {
+    return 0;
+  }
+  caseFunc(i: Func) {
+    return -this.current;
+  }
+  caseReturn(i: IReturn) {
+    if (this.current !== 1)
+      throw `${this.current} values on the stack at return on line ${i.lineNumber}`;
+    return Number.NEGATIVE_INFINITY;
+  }
+  caseCall(i: ICall) {
+    return -env.funcs[i.name].params + 1;
+  }
+  caseStore(i: IStore) {
+    return -1;
+  }
+  caseLoad(i: ILoad) {
+    return 1;
+  }
+  casePush(i: IPush) {
+    return 1;
+  }
+  casePop(i: IPop) {
+    return -1;
+  }
+  caseDup(i: IDup) {
+    return 1;
+  }
+  caseSwap(i: ISwap) {
+    return 0;
+  }
+  caseSub(i: ISub) {
+    return -1;
+  }
+  caseJmp(i: IJmp) {
+    return 0;
+  }
+  caseZero(i: IZero) {
+    return -1;
+  }
+}
+
+class NextVisitor implements Visitor<number[]> {
+  constructor(private env: Env, private current: number) {}
+  caseLabel(i: Label) {
+    return [this.current + 1];
+  }
+  caseFunc(i: Func) {
+    return [this.current + 1];
+  }
+  caseReturn(i: IReturn) {
+    return [];
+  }
+  caseCall(i: ICall) {
+    return [this.current + 1];
+  }
+  caseStore(i: IStore) {
+    return [this.current + 1];
+  }
+  caseLoad(i: ILoad) {
+    return [this.current + 1];
+  }
+  casePush(i: IPush) {
+    return [this.current + 1];
+  }
+  casePop(i: IPop) {
+    return [this.current + 1];
+  }
+  caseDup(i: IDup) {
+    return [this.current + 1];
+  }
+  caseSwap(i: ISwap) {
+    return [this.current + 1];
+  }
+  caseSub(i: ISub) {
+    return [this.current + 1];
+  }
+  caseJmp(i: IJmp) {
+    return [this.env.labels[i.label]];
+  }
+  caseZero(i: IZero) {
+    return [this.env.labels[i.lTrue], this.env.labels[i.lFalse]];
+  }
+}
+
+function propagate(env: Env, instrs: Instruction[], stackHeights: number[]) {
+  let changed = false;
+  for (let i = 0; i < instrs.length; i++) {
+    let inst = instrs[i];
+    let stackHeight = stackHeights[i];
+    if (stackHeight === undefined) continue;
+    stackHeight += inst.apply(new StackHeightVisitor(env, stackHeight));
+    inst.apply(new NextVisitor(env, i)).forEach((x) => {
+      if (stackHeights[x] === undefined) {
+        stackHeights[x] = stackHeight;
+        changed = true;
+      } else if (stackHeights[x] !== stackHeight)
+        throw `Illegal stack heights ${stackHeights[x]} and ${stackHeight} on line ${inst.lineNumber}`;
+    });
+  }
+  return changed;
+}
+
+function stackHeightAnalysis(env: Env, instrs: Instruction[]) {
+  let changed = true;
+  let stackHeights: number[] = [0];
+  while (changed) {
+    changed = propagate(env, instrs, stackHeights);
+  }
+  let index = stackHeights.findIndex((x) => x < 0);
+  if (index >= 0)
+    throw "Stack underflow on line " + instrs[index - 1].lineNumber;
+  console.log("Final stack height: " + stackHeights[stackHeights.length - 1]);
+}
+
+class StackHeight extends Analysis<void> {
+  private stackHeight: number = 0;
+  private labels: { [name: string]: number } = {};
+  constructor(private env: Env) {
+    super();
+  }
+  after() {}
+  caseLabel(i: Label) {
+    if (
+      this.stackHeight !== Number.NEGATIVE_INFINITY &&
+      this.labels[i.label] !== undefined &&
+      this.labels[i.label] !== this.stackHeight
+    )
+      throw "Illegal stack height on line " + i.lineNumber;
+    this.stackHeight = this.labels[i.label] || this.stackHeight;
+  }
+  caseFunc(i: Func) {
+    this.stackHeight = 0;
+  }
+  caseReturn(i: IReturn) {
+    if (this.stackHeight <= 0) throw "Stack underflow on line " + i.lineNumber;
+    if (this.stackHeight > 1)
+      throw "Illegal stack height on line " + i.lineNumber;
+    this.stackHeight = Number.NEGATIVE_INFINITY;
+  }
+  caseCall(i: ICall) {
+    if (this.stackHeight < this.env.funcs[i.name].params)
+      throw "Stack underflow on line " + i.lineNumber;
+    this.stackHeight -= this.env.funcs[i.name].params;
+    this.stackHeight++;
+  }
+  caseStore(i: IStore) {
+    if (this.stackHeight <= 0) throw "Stack underflow on line " + i.lineNumber;
+    this.stackHeight--;
+  }
+  caseLoad(i: ILoad) {
+    this.stackHeight++;
+  }
+  casePush(i: IPush) {
+    this.stackHeight++;
+  }
+  casePop(i: IPop) {
+    if (this.stackHeight <= 0) throw "Stack underflow on line " + i.lineNumber;
+    this.stackHeight--;
+  }
+  caseDup(i: IDup) {
+    if (this.stackHeight <= 0) throw "Stack underflow on line " + i.lineNumber;
+    this.stackHeight++;
+  }
+  caseSwap(i: ISwap) {
+    if (this.stackHeight < 2) throw "Stack underflow on line " + i.lineNumber;
+  }
+  caseSub(i: ISub) {
+    if (this.stackHeight < 2) throw "Stack underflow on line " + i.lineNumber;
+    this.stackHeight--;
+  }
+  caseJmp(i: IJmp) {
+    if (
+      this.labels[i.label] !== undefined &&
+      this.labels[i.label] !== this.stackHeight
+    )
+      throw "Illegal stack height on line " + i.lineNumber;
+    this.labels[i.label] = this.stackHeight;
+    this.stackHeight = Number.NEGATIVE_INFINITY;
+  }
+  caseZero(i: IZero) {
+    if (this.stackHeight <= 0) throw "Stack underflow on line " + i.lineNumber;
+    this.stackHeight--;
+    if (
+      this.labels[i.lTrue] !== undefined &&
+      this.labels[i.lTrue] !== this.stackHeight
+    )
+      throw (
+        "Illegal stack height for label " + i.lTrue + " on line " + i.lineNumber
+      );
+    if (
+      this.labels[i.lFalse] !== undefined &&
+      this.labels[i.lFalse] !== this.stackHeight
+    )
+      throw (
+        "Illegal stack height for label " +
+        i.lFalse +
+        " on line " +
+        i.lineNumber
+      );
+    this.labels[i.lTrue] = this.stackHeight;
+    this.labels[i.lFalse] = this.stackHeight;
+    this.stackHeight = Number.NEGATIVE_INFINITY;
+  }
+}
+
 let filename = process.argv[2];
 let prog = new Parser(new Lexer(filename));
 prog.parse();
+prog.apply(new VariableCheck());
+let env = prog.apply(new Environment());
+stackHeightAnalysis(env, prog.getInstructions());
 let codeGen = new CodeGeneration();
 prog.apply(codeGen);
 prog.apply(codeGen);
