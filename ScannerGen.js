@@ -1,4 +1,20 @@
 "use strict";
+var __read = (this && this.__read) || function (o, n) {
+    var m = typeof Symbol === "function" && o[Symbol.iterator];
+    if (!m) return o;
+    var i = m.call(o), r, ar = [], e;
+    try {
+        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    }
+    catch (error) { e = { error: error }; }
+    finally {
+        try {
+            if (r && !r.done && (m = i["return"])) m.call(i);
+        }
+        finally { if (e) throw e.error; }
+    }
+    return ar;
+};
 function makeNFA(regEx) {
     var stack = [];
     var map = [];
@@ -108,11 +124,117 @@ function faOfNFA(nfa) {
     }
     return map;
 }
+function xor(a, b) {
+    return a !== b;
+}
+function minimize(fa) {
+    var classes = [];
+    var len = Object.keys(fa).length;
+    for (var i = 0; i < len; i++) {
+        classes.push([]);
+    }
+    for (var i = 0; i < len; i++) {
+        for (var j = i + 1; j < len; j++) {
+            if (xor(fa[i].accept, fa[j].accept)) {
+                classes[j][i] = 1;
+            }
+        }
+    }
+    var changed = true;
+    var pass = 2;
+    while (changed) {
+        changed = false;
+        var _loop_2 = function (i) {
+            var _loop_4 = function (j) {
+                if (classes[j][i] !== undefined)
+                    return "continue";
+                var transitionsI = Object.keys(fa[i].transitions);
+                var transitionsJ = Object.keys(fa[j].transitions);
+                transitionsI
+                    .filter(function (x) { return transitionsJ.includes(x); })
+                    .forEach(function (x) {
+                    var _a = __read(myMin(fa[i].transitions[x], fa[j].transitions[x]), 2), min = _a[0], max = _a[1];
+                    var marked = classes[max][min];
+                    if (marked !== undefined) {
+                        classes[j][i] = pass;
+                        changed = true;
+                    }
+                });
+            };
+            for (var j = i + 1; j < len; j++) {
+                _loop_4(j);
+            }
+        };
+        for (var i = 0; i < len; i++) {
+            _loop_2(i);
+        }
+        pass++;
+    }
+    // printTable(classes);
+    var map = {};
+    for (var i = 0; i < len; i++) {
+        for (var j = i - 1; j >= 0; j--) {
+            if (classes[i][j] === undefined)
+                map[i] = j;
+        }
+    }
+    var _loop_3 = function (i) {
+        Object.keys(fa[i].transitions).forEach(function (k) {
+            var endState = fa[i].transitions[k];
+            if (map[endState] !== undefined) {
+                fa[i].transitions[k] = map[endState];
+            }
+        });
+    };
+    for (var i = 0; i < len; i++) {
+        _loop_3(i);
+    }
+    Object.keys(map).forEach(function (x) {
+        delete fa[+x];
+    });
+}
+function myMin(a, b) {
+    if (a <= b)
+        return [a, b];
+    else
+        return [b, a];
+}
+function isPrefix(ar1, ar2) {
+    for (var k = 0; k < Math.min(ar1.length, ar2.length); k++) {
+        if (ar1[k] !== ar2[k])
+            return false;
+    }
+    return true;
+}
+function printTable(table) {
+    for (var x = 0; x < table.length; x++) {
+        var result = "";
+        for (var y = 0; y < table[x].length; y++) {
+            if (y > 0)
+                result += " | ";
+            result += table[x][y] || " ";
+        }
+        console.log(result);
+    }
+}
+function arrayEquals(ar1, ar2) {
+    if (ar1.length !== ar2.length)
+        return false;
+    for (var k = 0; k < ar1.length; k++) {
+        if (ar1[k] !== ar2[k])
+            return false;
+    }
+    return true;
+}
 var RegEx = /** @class */ (function () {
     function RegEx(regexp) {
         var nfa = makeNFA(regexp);
         this.fa = faOfNFA(nfa);
-        console.log(Object.keys(this.fa).length);
+        // console.log(this.fa);
+        // console.log(Object.keys(this.fa).length);
+        minimize(this.fa);
+        // console.log(this.fa);
+        // console.log(Object.keys(this.fa).length);
     }
     RegEx.prototype.matches = function (str) {
         var state = 0;
@@ -126,10 +248,17 @@ var RegEx = /** @class */ (function () {
     };
     return RegEx;
 }());
-var regexp = "[a-zA-Z0-9]+@[a-zA-Z0-9]+.[a-zA-Z]{2+}";
-//let regexp = "(0|1)*1";
+// let regexp = "[a-zA-Z0-9]+@[a-zA-Z0-9]+.[a-zA-Z]{2+}";
+var regexp = new RegEx("(0|(1|(a|b)))*01");
 // let regexp = new RegEx(
 //   "(a|(b|c))(a|(b|c))*@(a|(b|c))(a|(b|c))*.(a|(b|c))(a|(b|c))(a|(b|c))*"
 // );
-var str = "abc@a.ab";
-console.log(regexp.matches(str));
+console.log(regexp.matches("001001010110101"), true);
+console.log(regexp.matches("00100101011010"), false);
+console.log(regexp.matches("00"), false);
+console.log(regexp.matches("01"), true);
+// Today:
+// * Minimize
+// * Store in files
+// * Generate token
+// * Syntactic sugar

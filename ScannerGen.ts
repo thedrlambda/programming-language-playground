@@ -102,12 +102,107 @@ function faOfNFA(nfa: NFA): FA {
   return map;
 }
 
+function xor(a: boolean, b: boolean) {
+  return a !== b;
+}
+
+function minimize(fa: FA) {
+  let classes: (number | null)[][] = [];
+  let len = Object.keys(fa).length;
+  for (let i = 0; i < len; i++) {
+    classes.push([]);
+  }
+  for (let i = 0; i < len; i++) {
+    for (let j = i + 1; j < len; j++) {
+      if (xor(fa[i].accept, fa[j].accept)) {
+        classes[j][i] = 1;
+      }
+    }
+  }
+  let changed = true;
+  let pass = 2;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < len; i++) {
+      for (let j = i + 1; j < len; j++) {
+        if (classes[j][i] !== undefined) continue;
+        let transitionsI = Object.keys(fa[i].transitions);
+        let transitionsJ = Object.keys(fa[j].transitions);
+        transitionsI
+          .filter((x) => transitionsJ.includes(x))
+          .forEach((x) => {
+            let [min, max] = myMin(fa[i].transitions[x], fa[j].transitions[x]);
+            let marked = classes[max][min];
+            if (marked !== undefined) {
+              classes[j][i] = pass;
+              changed = true;
+            }
+          });
+      }
+    }
+    pass++;
+  }
+  // printTable(classes);
+  let map: { [key: number]: number } = {};
+  for (let i = 0; i < len; i++) {
+    for (let j = i - 1; j >= 0; j--) {
+      if (classes[i][j] === undefined) map[i] = j;
+    }
+  }
+  for (let i = 0; i < len; i++) {
+    Object.keys(fa[i].transitions).forEach((k) => {
+      let endState = fa[i].transitions[k];
+      if (map[endState] !== undefined) {
+        fa[i].transitions[k] = map[endState];
+      }
+    });
+  }
+  Object.keys(map).forEach((x) => {
+    delete fa[+x];
+  });
+}
+
+function myMin(a: number, b: number) {
+  if (a <= b) return [a, b];
+  else return [b, a];
+}
+
+function isPrefix<T>(ar1: T[], ar2: T[]) {
+  for (let k = 0; k < Math.min(ar1.length, ar2.length); k++) {
+    if (ar1[k] !== ar2[k]) return false;
+  }
+  return true;
+}
+
+function printTable<T>(table: T[][]) {
+  for (let x = 0; x < table.length; x++) {
+    let result = "";
+    for (let y = 0; y < table[x].length; y++) {
+      if (y > 0) result += " | ";
+      result += table[x][y] || " ";
+    }
+    console.log(result);
+  }
+}
+
+function arrayEquals<T>(ar1: T[], ar2: T[]) {
+  if (ar1.length !== ar2.length) return false;
+  for (let k = 0; k < ar1.length; k++) {
+    if (ar1[k] !== ar2[k]) return false;
+  }
+  return true;
+}
+
 class RegEx {
   private fa: FA;
   constructor(regexp: string) {
     let nfa = makeNFA(regexp);
     this.fa = faOfNFA(nfa);
-    console.log(Object.keys(this.fa).length);
+    // console.log(this.fa);
+    // console.log(Object.keys(this.fa).length);
+    minimize(this.fa);
+    // console.log(this.fa);
+    // console.log(Object.keys(this.fa).length);
   }
   matches(str: string) {
     let state = 0;
@@ -120,11 +215,19 @@ class RegEx {
   }
 }
 
-let regexp = "[a-zA-Z0-9]+@[a-zA-Z0-9]+.[a-zA-Z]{2+}";
+// let regexp = "[a-zA-Z0-9]+@[a-zA-Z0-9]+.[a-zA-Z]{2+}";
 
-//let regexp = "(0|1)*1";
+let regexp = new RegEx("(0|(1|(a|b)))*01");
 // let regexp = new RegEx(
 //   "(a|(b|c))(a|(b|c))*@(a|(b|c))(a|(b|c))*.(a|(b|c))(a|(b|c))(a|(b|c))*"
 // );
-let str = "abc@a.ab";
-console.log(regexp.matches(str));
+console.log(regexp.matches("001001010110101"), true);
+console.log(regexp.matches("00100101011010"), false);
+console.log(regexp.matches("00"), false);
+console.log(regexp.matches("01"), true);
+
+// Today:
+// * Minimize
+// * Store in files
+// * Generate token
+// * Syntactic sugar
